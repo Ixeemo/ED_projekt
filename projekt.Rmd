@@ -7,36 +7,92 @@ output: html_notebook
 library(shiny)
 library(leaflet)
 library(readr)
+library(htmltools)
 ```
 
 ```{r}
-data = read_csv("result.csv")
+data = read_csv("ResultsFinal.csv")
+
+data_summarized <- data.frame(Team=unique(data$Team), Wins=0, Draws=0, Losses=0, GF=0, GA=0, GD=0)
 ```
 
+```{r}
+for (i in data_summarized$Team){
+  data_summarized$Wins[data_summarized$Team == i] <- sum(data$W[data$Team == i])
+}
+```
+
+```{r}
+ggplot(data[data$Team == "Liverpool",], aes(x = year, y = Pts)) + geom_bar(stat="identity", colour = "blue") + xlab("Sezon") + ylab("Suma punktów") + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Punkty zdobyte przez w XXI wieku", data$Team) + theme(axis.title = element_text(size = 14)) + theme(axis.text = element_text(size = 12)) + theme(plot.title = element_text(size = 20)) + theme(plot.title = element_text(hjust = 0.5))
+```
 
 
 ```{r}
 r_colors <- rgb(t(col2rgb(colors()) / 255))
 names(r_colors) <- colors()
 
-ui <- fluidPage(
+ui <- shinyUI(
+  fluidPage(
+  titlePanel("Liga Angielska XXI wiek"),
   leafletOutput("mymap"),
-  p(),
-  actionButton("recalc", "New points")
+  tableOutput("results"),
+  plotOutput("grafica", hover="clickGrafica")
+  )
 )
 
 server <- function(input, output, session) {
-
-  points <- eventReactive(input$recalc, {
-    cbind(c(21, 52.216), c(21, 50.6))
-  }, ignoreNULL = FALSE)
-
+  
+  # Obserwowanie klikania
+  data_of_click <- reactiveValues(clickedMarker=NULL)
+  observeEvent(input$mymap_marker_click, {
+    data_of_click$clickedMarker <- input$mymap_marker_click
+  })
   output$mymap <- renderLeaflet({
-    leaflet() %>%
-      addProviderTiles(providers$Stamen.TonerLite,
-        options = providerTileOptions(noWrap = TRUE)
-      ) %>%
-      addMarkers(data = points())
+      leaflet(data) %>%
+      addTiles() %>%
+      addMarkers(~Longitude, ~Latitude) #, popup = ~htmlEscape(Team))
+  })
+  
+  
+  # Do wprowadzania tekstu do popupów
+  observe({
+        click <- input$mymap_marker_click
+       
+        if (is.null(click))
+            return()
+        team <- data[data$Longitude == click$lng,]
+        
+        text <-
+            paste(sep = "<br/>", "<b><a>", 
+                  team$Team, "</a></b>",
+                  "Liczba zdobytych mistrzostw: ",
+                        click$lat,  
+                        "Liczba sezonów w najwyższej klasie rozgrywkowej: ",
+                        click$lng,
+                       "Średnia pozycja w tabeli: ",
+                        click$lng)
+
+        leafletProxy(mapId = "mymap") %>%
+        #    clearPopups() %>%
+            addPopups(dat = click, lat = ~lat, lng = ~lng, popup = text)
+
+        # map$clearPopups()
+        # map$showPopup(click$latitude, click$longtitude, text)
+    })
+  
+  # Tabela z wynikami
+  output$results <- renderTable(
+    data[(data$Longitude == data_of_click$clickedMarker$lng),] #longtitiude jest unikalne dla każdego klubu
+    # (data$Latitude == data_of_click$clickedMarker$lat) && 
+  )
+  
+  # Wykresy ze zwyciestwami oraz zdobywanymi punktami
+  output$grafica <- renderPlot({
+    if (is.null(data_of_click$clickedMarker)){
+            return()
+    }
+     ggplot(data = data[data$Longitude == data_of_click$clickedMarker$lng,], aes(x = year, y = Pts)) + geom_bar(stat="identity", colour = "blue") + xlab("Sezon") + ylab("Suma punktów") + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Punkty zdobyte w XXI wieku") + theme(axis.title = element_text(size = 14)) + theme(axis.text = element_text(size = 12)) + theme(plot.title = element_text(size = 20)) + theme(plot.title = element_text(hjust = 0.5))
+  
   })
 }
 
