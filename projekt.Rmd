@@ -10,6 +10,7 @@ library(readr)
 library(htmltools)
 library(ggplot2)
 library(scales)
+library(dplyr)
 
 ```
 
@@ -44,7 +45,9 @@ ui <- shinyUI(
   fluidPage(
   hr(),
   wellPanel(
-  titlePanel("Liga Angielska XXI wiek")
+  #titlePanel("Liga Angielska XXI wiek")
+    h1(id="title", "Piłkarska Liga Angielska w XXI wieku"),
+    tags$style(HTML("#title{font-family:georgia,garamond,serif;text-align:center}"))
   ),
   hr(),
   wellPanel(
@@ -52,12 +55,28 @@ ui <- shinyUI(
   hr(),
   wellPanel(
   fluidRow(selectInput("wykres", label = "Wykres", choices = c("Zdobyte punkty", "Strzelone Bramki", "Pozycja w tabeli"), selected = "Zdobyte punkty"),
+   # tags$style(HTML(".selectize-input {font-family:georgia,garamond,serif;text-align:center}")),
     plotOutput("grafica"))),
   hr(),
   wellPanel(
-  fluidRow(tableOutput("results"))
+  fluidRow(tableOutput("results"),align="center" )
+  ),
+  hr(),
+  wellPanel(
+  tags$footer(HTML("
+                    <!-- Footer -->
+                           <footer class='page-footer font-large indigo'>
+                           <!-- Copyright -->
+                           <div class='footer-copyright text-center py-3'>© 2021 Copyright:
+                           <b>Magdalena Gozdecka & Dawid Wietecha </b>
+                           </div>
+                           <!-- Copyright -->
+
+                           </footer>
+                           <!-- Footer -->")))
+  
   ))
-)
+#)
 
 server <- function(input, output, session) {
   
@@ -81,14 +100,14 @@ server <- function(input, output, session) {
         team <- data_summarized[data_summarized$Longitude == click$lng,]
         
         text <-
-            paste(sep = "<br/>", "<b><a>", 
+            paste(sep = "<br/>", "<b><a><p style = font-family:georgia,garamond,serif;font-size:16px;text-align:center>", 
                   team$Team, "</a></b>",
-                  "<b>Liczba zdobytych mistrzostw: </b>",
+                  "Zdobyte mistrzostwa:<b>",
                         team$Titles,  
-                        "<b>Liczba sezonów w najwyższej klasie rozgrywkowej: </b>",
-                        team$Seasons,
-                       "<b>Liczba zdobytych punktów: </b>",
-                        team$Points)
+                        "</b>Sezony w najwyższej klasie rozgrywkowej:<b>",
+                       team$Seasons,
+                       "</b>Zdobyte punktów:<b>",
+                        team$Points, "</p></b>")
 
         leafletProxy(mapId = "mymap") %>%
             clearPopups() %>%
@@ -97,26 +116,29 @@ server <- function(input, output, session) {
     })
   
   # Tabela z wynikami
-  output$results <- renderTable(
-    
+  output$results <- renderTable({
+    if (is.null(data_of_click$clickedMarker)){
+            return()
+    }
     data_summarized[(data_summarized$Longitude == data_of_click$clickedMarker$lng),!(names(data_summarized) %in% c("Longitude", "Latitude"))] #longtitiude jest unikalne dla każdego klubu
     # (data$Latitude == data_of_click$clickedMarker$lat) && 
+  }, align = 'c'
   )
   
   # Wykresy ze zwyciestwami oraz zdobywanymi punktami
   output$grafica <- renderPlot({
     if (is.null(data_of_click$clickedMarker)){
             return()
-    }
+    } 
     if (input$wykres == "Zdobyte punkty"){
     
-     ggplot(data = data[data$Longitude == data_of_click$clickedMarker$lng,], aes(x = year, y = Pts)) + geom_bar(stat="identity", colour = "blue") + xlab("Sezon") + ylab("Suma punktów") + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Punkty zdobyte w XXI wieku") + theme(axis.title = element_text(size = 14)) + theme(axis.text = element_text(size = 12)) + theme(plot.title = element_text(size = 20)) + theme(plot.title = element_text(hjust = 0.5)) 
+     ggplot(data = data[data$Longitude == data_of_click$clickedMarker$lng,], aes(x = year, y = Pts)) + geom_bar(stat="identity", width=0.45) + xlab("Sezon") + ylab("Suma punktów") + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Punkty zdobyte w XXI wieku") + theme(axis.title = element_text(size = 14)) + theme(axis.text = element_text(size = 12)) + theme(plot.title = element_text(size = 20)) + theme(plot.title = element_text(hjust = 0.5)) 
     }
     else if (input$wykres == "Strzelone Bramki"){
-       ggplot(data = data[data$Longitude == data_of_click$clickedMarker$lng,], aes(x = year, y = F)) + geom_bar(stat="identity", colour = "blue") + xlab("Sezon") + ylab("Suma punktów") + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Strzelone bramki w XXI wieku") + theme(axis.title = element_text(size = 14)) + theme(axis.text = element_text(size = 12)) + theme(plot.title = element_text(size = 20)) + theme(plot.title = element_text(hjust = 0.5))
+       ggplot(data = data[data$Longitude == data_of_click$clickedMarker$lng,], aes(x = year, y = F)) + geom_bar(stat="identity", width=0.45) + xlab("Sezon") + ylab("Suma strzelonych bramek") + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Strzelone bramki w XXI wieku") + theme(axis.title = element_text(size = 14)) + theme(axis.text = element_text(size = 12)) + theme(plot.title = element_text(size = 20)) + theme(plot.title = element_text(hjust = 0.5))
     }
     else if (input$wykres == "Pozycja w tabeli"){
-       ggplot(data = data[data$Longitude == data_of_click$clickedMarker$lng,], aes(x = year, y = Pos)) + geom_point(colour = "blue") + xlab("Sezon") + ylab("Suma punktów") + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Pozycja w tableli w XXI wieku") + theme(axis.title = element_text(size = 14)) + theme(axis.text = element_text(size = 12)) + theme(plot.title = element_text(size = 20)) + theme(plot.title = element_text(hjust = 0.5))
+       ggplot(data = data[data$Longitude == data_of_click$clickedMarker$lng,], aes(x = year, y = Pos)) + geom_point(size=4) + geom_line(aes(group=1)) + xlab("Sezon") + ylab("Pozycja w tabeli") + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Pozycja w tabeli w XXI wieku") + theme(axis.title = element_text(size = 14)) + theme(axis.text = element_text(size = 12)) + theme(plot.title = element_text(size = 20)) + theme(plot.title = element_text(hjust = 0.5)) + scale_y_reverse() + scale_y_continuous(trans = "reverse", labels=as.character(data$Pos),breaks=data$Pos)
     }
   
   })
